@@ -2,7 +2,7 @@
 
 How to Run:
 
-A) The executable "Yahtzee.exe" is for Windows/Intel x86/64. Easiest way to run for this platform.
+A) The executable "Yahtzee.exe" is for Windows/Intel x86/64. Easiest way to run for this platform. You might have to include "freeglut.dll" in the folder with your executable.
 
 B) Compile
 
