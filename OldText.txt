@@ -2,9 +2,6 @@
 #include "Aux_GL.cpp"
 #include "Rules.hpp"
 
-
-enum { normal, Ignore, for_exiting };
-
 template <typename T>
 extern vector<T> vec_remove(T ele, vector<T> V);
 
@@ -12,8 +9,6 @@ extern vector<T> vec_remove(T ele, vector<T> V);
 char human_name[100];
 
 vector<vector<float>> dice_coords;
-
-bool can_reroll;
 
 State::State(void(*lock_funct)(), void(*unlock_funct)())
 {
@@ -28,7 +23,7 @@ State::State(void(*lock_funct)(), void(*unlock_funct)())
 	state_category = 0;
 	text_to_display = NULL; //text_to_display is NULL iff is human's turn
 	is_view_blocked = false;
-	mouse_state = normal;
+	is_mouse_for_exiting = false;
 	num_yahtzees = 0;
 
 	
@@ -129,15 +124,14 @@ void State::create_end_of_game(const char *message)
 {
 	
 	store_str_in_dynamic_str(message, &(this->text_to_display));
-	mouse_state = for_exiting;
+	is_mouse_for_exiting = true;
 	is_view_blocked = false;
 	force_view_redisplay();
 
 }
 
 //Technical function which uses some values from the current state, combined with data from mouse clicks, to update the state.
-void State::update_state_based_on_state(void *data, function<void(void *data, int turn_number, int rolls[5], \
-	int &category, bool &is_done, bool is_selected[5], bool available_options[14], char *text_to_display)> determine_state)
+void State::update_state_based_on_state(void *data, void(*determine_state)(void *data, int turn_number, int rolls[5], int &category, bool &is_done, bool is_selected[5], bool available_options[14], char *text_to_display))
 {
 	lock_funct();
 	determine_state(data, state_turn_number, state_rolls, state_category, is_done, is_selected, available_options, text_to_display);
@@ -258,9 +252,7 @@ void create_frame(vector<const char *> category_names, vector<vector<float>> &di
 		float coords_for_instructions[2] = { 30, Dimensions.window_height * 0.83f };
 		if (turn_num < 2)
 		{
-			if (turn_num == -1)
-				show_text(coords_for_instructions[0], coords_for_instructions[1], "Rolling", white);
-			else if (freq_ele_in_arr(true,5, is_selected) == 5)
+			if (freq_ele_in_arr(true,5, is_selected) == 5)
 				show_text(coords_for_instructions[0], coords_for_instructions[1], "Click dots again to desect, or done to select scoring category", white);
 
 			else
@@ -412,70 +404,10 @@ void Score_Pane::update(bool is_player_human, int curr_upper_score, int curr_low
 	delete string_to_show;
 }
 
-//------------------------VIEW FUNCTIONS------------------------
-
-
-//Idle callback. Signals that glut is not currently drawing the view. Use: if another thread needs to wait to make another request to redisplay
-void signal_idle()
-{
-	if (curr_state.get_mouse_state() && (curr_state.is_view_blocked == Ignore))
-	{
-		can_reroll = true;
-		curr_state.is_view_blocked = false;
-	}
-}
-
-void display_rolling_dice(int turn_num, int scores[2][2], bool available_options[14], const char *text_to_display, int num_yahtzees, int curr_rolls[5])
-{
-	if (freq_ele_in_arr(true, 5, curr_state.get_is_selected()) == 5)
-		return;
-
-	while (Dimensions.window_height == 0)
-		this_thread::sleep_for(chrono::milliseconds(100));
-	curr_state.set_mouse_state(Ignore);
-	vector<int> cpy_curr_rolls(5,0);
-	char *null_text = NULL;
-	curr_state.get_info_for_view(NULL, &(cpy_curr_rolls[0]), NULL, NULL, NULL, &null_text, NULL); //get the prior rolls
-	can_reroll = true;
-	for (int i = 0; i < 10; i++)
-	{
-		bool *is_selected = curr_state.get_is_selected();
-
-		vector<int> auxillary = cpy_curr_rolls;
-
-		if (i < 9)
-		{
-			for (int j = 0; j < 5; j++)
-				if (!is_selected[j])
-					auxillary[j] = ui(re);
-		}
-		else
-		{
-			memcpy(&(auxillary[0]), curr_rolls, 5 * sizeof(int));
-			curr_state.update_is_selected(auxillary);
-		}
-
-		cpy_curr_rolls = auxillary;
-
-		curr_state.update_state(((i < 9) ? -1 : turn_num), &(cpy_curr_rolls[0]), scores, available_options, text_to_display, num_yahtzees);
-		
-		this_thread::sleep_for(chrono::milliseconds(300));
-		while (!can_reroll)
-			this_thread::sleep_for(chrono::milliseconds(25));
-		can_reroll = false;
-		
-	}
-	curr_state.set_mouse_state(normal);
-	curr_state.is_view_blocked = true; //await the final updating of the state
-}
-
 //Mouse callback function. It uses the position to find the dice selected or the category chosen. 
 void onClick(int button, int state, int x, int y)
 {
-	int curr_mouse_state = curr_state.get_mouse_state();
-
-	if (curr_mouse_state == Ignore)
-		return;
+	
 
 	static bool got_yahtzee = false;
 
@@ -489,10 +421,8 @@ void onClick(int button, int state, int x, int y)
 
 	int coords[2] = { x, y };
 
-	curr_state.update_state_based_on_state(&coords, [curr_mouse_state](void *data, int turn_num, int rolls[5], int &category, bool &is_done, bool is_selected[5], bool available_options[14], char *text_to_display)
+	curr_state.update_state_based_on_state(&coords, [](void *data, int turn_num, int rolls[5], int &category, bool &is_done, bool is_selected[5], bool available_options[14], char *text_to_display)
 	{
-
-
 		int x = (*((int((*)[2]))(data)))[0];
 		int y = (*((int((*)[2]))(data)))[1];
 
@@ -500,13 +430,14 @@ void onClick(int button, int state, int x, int y)
 		if (dist(pair < float, float > {x, y}, pair < float, float > {0.9 * Dimensions.window_width, 0.91 * Dimensions.window_height}) <= .06* Dimensions.window_height)
 		{
 	
-			if (curr_mouse_state  == for_exiting)
+			if (curr_state.get_is_mouse_for_exiting())
+				//glutExit();
 				glutLeaveMainLoop();
 
 			if ((turn_num != 2) || (category != 0))
 				// clicks within the circle with "done"
 			{
-				curr_state.is_view_blocked = true; //now not allowed to draw the view until the state is updated
+				curr_state.is_view_blocked = true; //now not alloweed to draw the view until the state is updated
 
 
 				curr_state.clear_text(); //this is essential to prevent redisplaying of the CPU's turn
@@ -518,7 +449,7 @@ void onClick(int button, int state, int x, int y)
 
 			}
 		}
-		else if (curr_mouse_state == for_exiting)
+		else if (curr_state.get_is_mouse_for_exiting())
 			return;
 		else if (text_to_display != NULL)
 			return;
@@ -552,20 +483,20 @@ void onClick(int button, int state, int x, int y)
 		
 	});
 	
-	if (curr_mouse_state == normal)
+	if (!curr_state.get_is_mouse_for_exiting())
 		force_view_redisplay();
 }
 
 //Displays the view to the window, getting information from curr_state.
 void displayView()
 {
-
+	
 	if (curr_state.is_view_blocked)
 	{
 		char *text;
 		curr_state.get_info_for_view(NULL, NULL, NULL, NULL, NULL, &text, NULL);
 		if (text != NULL)
-			return; //there can be only one view display on CPU turn that ever is allowed to proceed. The same applies if the dice is being rolled
+			return; //there can be only one view display on CPU turn that ever is allowed to proceed
 		while (curr_state.is_view_blocked)
 			this_thread::sleep_for(chrono::milliseconds(100));
 
@@ -600,9 +531,7 @@ void displayView()
 	pane.update(true, scores[0][0], scores[0][1]);
 	pane.update(false, scores[1][0], scores[1][1]);
 
-	glFlush();
 
-	if (curr_state.get_mouse_state() == Ignore)
-		curr_state.is_view_blocked = true;
+	glFlush();
 	
 }

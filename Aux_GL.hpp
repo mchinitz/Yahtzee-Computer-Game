@@ -42,8 +42,8 @@ void show_text(float starting_x, float starting_y, const char *text, float color
 //Contains the width and height of the window. In this application, both dimensions are the same, the minimum of the actual window's length and height, although the window manager might expand the objects to full size.
 struct dimensions
 {
-	float window_width;
-	float window_height;
+	float window_width = 0;
+	float window_height = 0;
 };
 
 static struct dimensions Dimensions;

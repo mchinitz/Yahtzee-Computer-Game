@@ -12,7 +12,7 @@ public:
 			gap = 24;
 		}
 
-		else if (window_dimension >= 550)
+		else if (window_dimension >= 575)
 		{
 			Font = GLUT_BITMAP_HELVETICA_18;
 			gap = 18;

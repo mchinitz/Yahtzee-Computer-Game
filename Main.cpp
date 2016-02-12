@@ -26,12 +26,17 @@ int GLmain(int argc, char** argv)
 {
 
 	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_SINGLE); 
+	glutInitDisplayMode(GLUT_SINGLE);
 	glutInitWindowSize(800, 800);
 	glutInitWindowPosition(100, 100);
-	glutCreateWindow("");
+	
+	glutEnterGameMode(); //prevents the user from resizing the window
+	
 	glutDisplayFunc(displayView);
 	glutMouseFunc(onClick);
+	glutIdleFunc(signal_idle);
+	
+
 	glutMainLoop(); 
 
 
@@ -45,9 +50,9 @@ void *relay(void *data)
 	return NULL;
 }
 
-
 int main(int argc, char **argv)
 {
+
 
 	cout << "Please enter your name" << endl;
 	cin.getline(human_name, 100);

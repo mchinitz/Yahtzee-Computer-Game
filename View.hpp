@@ -5,6 +5,7 @@ extern void Lock();
 extern void Unlock();
 #include <string>
 #include <vector>
+#include <functional>
 
 //The category names with new lines inserted for fortmatting reasons
 vector<const char *> category_names = { "ones", "twos", "threes", "fours", "fives", "sixes", "three of a \nkind", \
@@ -26,7 +27,7 @@ class State
 	bool is_selected [5]; //is the ith die selected to be kept by the user
 	bool available_options[14];
 	char *text_to_display; //primarely for displaying information about the computer's turn
-	bool is_mouse_for_exiting; //a flag that is set to designate the end of the game
+	int mouse_state; //a flag that is set to designate whether/how to respond to mouse clicks. If for_exiting, exit if clicks on "Done" and ignore otherwise
 	int num_yahtzees;
 
 	pair<int, int> *get_2D_arr_zeros()
@@ -46,15 +47,15 @@ public:
 	
 	//functions for getting and setting the state:
 	
-	//in a single critical section, from the view, fetch the turn number, determine the rolls and scores, and store those values in curr_state
-	void get_info_for_view(int *turn_num, int rolls[5], int scores[2][2], bool *is_done, bool available_options[14], char **text_to_display, int *num_yahtzees);
+	//in a single critical section, from the view, fetch the turn number, determine the rolls and scores, and store those values in curr_state. Returns is_selected
+	bool *get_info_for_view(int *turn_num, int rolls[5], int scores[2][2], bool *is_done, bool available_options[14], char **text_to_display, int *num_yahtzees);
 
 
 	//Allows the human-player thread to notify the view of the game progress.
 	void update_state(int turn_num, int rolls[5], int scores[2][2], bool available_options[14], const char *text_to_display, int num_yahtzees, bool wait_on_done = false);
 	
-	void update_state_based_on_state(void *data, void(*determine_state)(void *data, int turn_number, int rolls[5], \
-		int &category, bool &is_done, bool is_selected[5], bool available_options[14], char *text_to_display));
+	void update_state_based_on_state(void *data, function<void(void *data, int turn_number, int rolls[5], \
+		int &category, bool &is_done, bool is_selected[5], bool available_options[14], char *text_to_display)> determine_state);
 
 	//Waits until the "Done" button is pressed, and then marks it as unpressed the next time this function is called
 	void wait_on_is_done();
@@ -77,9 +78,16 @@ public:
 	//Updates the state to reflect the end of the game
 	void create_end_of_game(const char *message);
 
-	bool get_is_mouse_for_exiting()
+	int get_mouse_state()
 	{
-		return is_mouse_for_exiting;
+		return mouse_state;
+	}
+
+	void set_mouse_state(int mouse_state)
+	{
+		if (mouse_state > 2)
+			throw exception();
+		this->mouse_state = mouse_state;
 	}
 };
 
@@ -96,7 +104,7 @@ class Dice
 public:
 
 	//Updates which dice are to be shown and in what order
-	void update(int rolls[5], vector<vector<float>> &dice_coords);
+	void update(int rolls[5], vector<vector<float>> &dice_coords, bool is_selected [5]);
 
 	vector<vector<float>> get_pos_of_dots()
 	{
@@ -123,7 +131,7 @@ public:
 };
 
 //Creates the dice, the category buttons, and the score pane. The inputs (except the first two) reflect the current state. Dice_coords are locations for drawing dice to on the frame, and are initialized by this function
-void create_frame(vector<const char *> category_names, vector<vector<float>> &dice_coords, bool available_options[14], char *text_to_display, int turn_num, int num_yahtzees, int rolls[5], int scores[2][2]);
+void create_frame(vector<const char *> category_names, vector<vector<float>> &dice_coords, bool available_options[14], char *text_to_display, int turn_num, int num_yahtzees, int rolls[5], int scores[2][2], bool is_selected[5]);
 
 //Mouse callback function which responds to the user selecting dice to keep, choosing a category, or clicking on the "Done" button. Updates the state and notifies the view to redraw itself
 void onClick(int button, int state, int x, int y);

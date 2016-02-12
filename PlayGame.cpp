@@ -10,6 +10,7 @@
 
 extern void Lock();
 extern void Unlock();
+extern void display_rolling_dice(int, int((*)[2]), bool[14], const char *, int, int[5]);
 
 random_device rd;
 mt19937 re(rd());
@@ -321,7 +322,6 @@ void wait_on_computation_thread(int round_number, CPU_Player *opponent, int scor
 void show_message_when_ready(string curr_message, int round_number, Player *player, Player *opponent, bool is_player_human, \
 		int turn_number, vector<int> &curr_rolls)
 {
-
 	static queue<Message_Queue_Info> Q;
 
 
@@ -345,10 +345,13 @@ void show_message_when_ready(string curr_message, int round_number, Player *play
 
 		}
 		if (round_number < 13)
+		{
+			//must get is_selected! Here is the location for the call
+			display_rolling_dice(turn_number, scores, available_options, NULL, player->getNumYahtzees(), &(curr_rolls[0]));
+			
 			curr_state.update_state(turn_number, &(curr_rolls[0]), scores, available_options, NULL, player->getNumYahtzees(), true);
-
-
-
+		}
+		
 		if (turn_number == 2)
 		{
 			if (round_number < 13)
@@ -469,9 +472,9 @@ void play_game(Player *player, Player *opponent)
 
 			sort(curr_rolls.begin(), curr_rolls.end());
 
-			if (is_player_human && turn_number)
+			/*if (is_player_human && turn_number)
 				curr_state.update_is_selected(curr_rolls);
-
+*/
 			if (turn_number < 2)
 			{
 				//for the human, make the decision during show_message_when_ready, because we must update the state first
