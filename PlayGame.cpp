@@ -322,18 +322,15 @@ void wait_on_computation_thread(int round_number, CPU_Player *opponent, int scor
 void show_message_when_ready(string curr_message, int round_number, Player *player, Player *opponent, bool is_player_human, \
 		int turn_number, vector<int> &curr_rolls)
 {
+
 	static queue<Message_Queue_Info> Q;
 
 
 	if (is_player_human)
 	{
 		bool available_options[14];
-		bool opp_available_options[14];
 		for (int i = 1; i < 14; i++)
-		{
 			available_options[i] = player->isAvailableOption(i);
-			opp_available_options[i] = opponent->isAvailableOption(i);
-		}
 		
 		int scores[2][2] = { { player->getCurrUpperScore(), player->getCurrLowerScore() }, {0, 0} };
 
@@ -354,15 +351,23 @@ void show_message_when_ready(string curr_message, int round_number, Player *play
 		
 		if (turn_number == 2)
 		{
+
 			if (round_number < 13)
+			{
 				player->update_score(curr_state.get_category(), &(curr_rolls[0]));
+				if (!(player->isAvailableOption(curr_state.get_category())))
+					available_options[curr_state.get_category()] = false;
+			}
 			scores[0][0] = player->getCurrUpperScore();
 			scores[0][1] = player->getCurrLowerScore();
+			
 
 			curr_state.clear_is_selected();
 
 			//now done with all messages for human player
 			//print the messages that can. First wait on CPU to catch up to current turn
+
+			
 
 			wait_on_computation_thread(round_number, (CPU_Player *)(opponent), scores);
 			
@@ -384,11 +389,18 @@ void show_message_when_ready(string curr_message, int round_number, Player *play
 				string message_to_send ("");
 				message_to_send.append(curr_message);
 				message_to_send.append(message);
+				int user_final_score = player->getCurrLowerScore() + player->getCurrUpperScore() + ((player->getCurrUpperScore() >= 63) ? 35 : 0);
+				int cpu_final_score = opponent->getCurrLowerScore() + opponent->getCurrUpperScore() + ((opponent->getCurrUpperScore() >= 63) ? 35 : 0);
+				if (user_final_score >= cpu_final_score)
+					message_to_send.append("You Win!\n");
+				else
+					message_to_send.append("Computer wins. Try again next time.\n");
 				curr_state.create_end_of_game(message_to_send.c_str());
 				return;
 			}
 
-			curr_state.update_state(2, &(curr_rolls[0]), scores, opp_available_options, (char *)(message.c_str()), opponent -> getNumYahtzees());
+			
+			curr_state.update_state(2, &(curr_rolls[0]), scores, available_options, (char *)(message.c_str()), player -> getNumYahtzees());
 			curr_state.wait_on_is_done();
 
 			
@@ -472,9 +484,6 @@ void play_game(Player *player, Player *opponent)
 
 			sort(curr_rolls.begin(), curr_rolls.end());
 
-			/*if (is_player_human && turn_number)
-				curr_state.update_is_selected(curr_rolls);
-*/
 			if (turn_number < 2)
 			{
 				//for the human, make the decision during show_message_when_ready, because we must update the state first

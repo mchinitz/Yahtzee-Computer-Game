@@ -125,8 +125,8 @@ class Score_Pane
 public:
 	Score_Pane(string human_name);
 
-	//Updates the pane to reflect the scores specified as arguments
-	void update(bool is_player_human, int curr_upper_score, int curr_lower_score);
+	//Updates the pane to reflect the scores specified as arguments. If round number is not -1, displays the round number.
+	void update(bool is_player_human, int curr_upper_score, int curr_lower_score, int round_number = -1);
 
 };
 

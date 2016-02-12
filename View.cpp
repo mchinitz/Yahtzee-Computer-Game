@@ -261,7 +261,7 @@ void create_frame(vector<const char *> category_names, vector<vector<float>> &di
 			if (turn_num == -1)
 				show_text(coords_for_instructions[0], coords_for_instructions[1], "Rolling", white);
 			else if (freq_ele_in_arr(true,5, is_selected) == 5)
-				show_text(coords_for_instructions[0], coords_for_instructions[1], "Click dots again to desect, or done to select scoring category", white);
+				show_text(coords_for_instructions[0], coords_for_instructions[1], "Click dots again to deselect, or GO to select scoring category.", white);
 
 			else
 				show_text(coords_for_instructions[0], coords_for_instructions[1], "Select dice to keep by clicking the dots. Click again to deselect.", white);
@@ -269,8 +269,7 @@ void create_frame(vector<const char *> category_names, vector<vector<float>> &di
 		
 		}
 		else
-			show_text(coords_for_instructions[0], coords_for_instructions[1], "Select a category.", white);
-
+			show_text(coords_for_instructions[0], coords_for_instructions[1],     "Select a scoring category above, and then click GO.", white);
 
 	}
 	else
@@ -293,11 +292,19 @@ void create_frame(vector<const char *> category_names, vector<vector<float>> &di
 	create_circle(0.9 * Dimensions.window_width, 0.91 * Dimensions.window_height, 0.06 * Dimensions.window_height, green);
 	float coords[2] = { .87f * Dimensions.window_width, .91f * Dimensions.window_height };
 	
-	//shows roll iff is user's turn, turn_num < 2 AND not selected all five dice
-	show_text(coords[0], coords[1], ((text_to_display == NULL) && (turn_num < 2) && (freq_ele_in_arr(true, 5, is_selected) < 5)) ? "Roll" : "Done", red);
+	//shows message on the "done" button, depending on the state
 
-
-
+	//if last round and CPU made its turn
+	if ((text_to_display != NULL) && ((num_yahtzees + freq_ele_in_arr(false, 13, available_options + 1)) >= 12))
+	{
+		//if showing final score
+		show_text(coords[0], coords[1], (curr_state.get_mouse_state() == for_exiting) ? "Quit" : "Done", red);
+	}
+	else if (text_to_display != NULL)
+		show_text(coords[0], coords[1], "Roll", red);
+	else
+		show_text(coords[0], coords[1], ((turn_num < 2) && (freq_ele_in_arr(true, 5, is_selected) < 5)) ? "Roll" : "GO!", red);
+	
 }
 
 //returns a list of points at which to draw circles at to represent holes on a die
@@ -387,14 +394,14 @@ Score_Pane::Score_Pane(string human_name)
 //Returns the string to be shown in the panel.
 char *Score_Pane::assemble_string(bool is_human, int curr_upper_score, int curr_lower_score)
 {
-	char *string_to_show = new char[(is_human) ? (human_name.length() + 20) : 23];
+	char *string_to_show = new char[(is_human) ? (human_name.length() + 20) : 28];
 	char *curr_pos = string_to_show;
 	if (curr_upper_score >= 63)
 		curr_upper_score += 35; //just what is shown, not stored internally
 	if (is_human)
 		curr_pos += sprintf(curr_pos, "%s: ", human_name.c_str());
 	else
-		curr_pos += sprintf(curr_pos, "%s: ", "CPU");
+		curr_pos += sprintf(curr_pos, "%s: ", "Computer");
 	curr_pos += sprintf(curr_pos, "%d, ", curr_upper_score);
 	curr_pos += sprintf(curr_pos, "%d", curr_lower_score);
 	
@@ -402,7 +409,7 @@ char *Score_Pane::assemble_string(bool is_human, int curr_upper_score, int curr_
 }
 
 //Shows the scores
-void Score_Pane::update(bool is_player_human, int curr_upper_score, int curr_lower_score)
+void Score_Pane::update(bool is_player_human, int curr_upper_score, int curr_lower_score, int round_number)
 {
 
 	float colors[3] = { 0, 0, 0 };
@@ -410,6 +417,13 @@ void Score_Pane::update(bool is_player_human, int curr_upper_score, int curr_low
 	float coords[2] = { 30, (float) (0.9 + ((is_player_human) ? 0 : .05)) * Dimensions.window_height};
 	show_text(coords[0], coords[1], string_to_show, colors);
 	delete string_to_show;
+	
+	if (round_number != -1)
+	{
+		string display_round_num = string("Round ") + to_str(round_number); 
+		show_text(0.5 * Dimensions.window_width, coords[1], display_round_num.c_str(), colors);
+	}
+
 }
 
 //------------------------VIEW FUNCTIONS------------------------
@@ -585,6 +599,9 @@ void displayView()
 	bool *is_selected = curr_state.get_info_for_view(&turn_num, rolls, scores, NULL, available_options, &text_to_display, &num_yahtzees);
 	//get the current state
 	
+	
+
+
 	create_frame(category_names, dice_coords, available_options, text_to_display, turn_num, num_yahtzees, rolls, scores, is_selected);
 
 
@@ -597,7 +614,8 @@ void displayView()
 
 	Score_Pane pane = Score_Pane(string(human_name));
 	
-	pane.update(true, scores[0][0], scores[0][1]);
+	
+	pane.update(true, scores[0][0], scores[0][1], freq_ele_in_arr(false, 13, available_options + 1) + num_yahtzees + ((text_to_display == NULL) ? 1 : 0));
 	pane.update(false, scores[1][0], scores[1][1]);
 
 	glFlush();
